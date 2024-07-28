@@ -30,6 +30,7 @@ namespace Standard.Licensing
     /// </summary>
     public enum LicenseType
     {
+        None = 0,
         /// <summary>
         /// For trial or demo use
         /// </summary>

@@ -48,11 +48,11 @@ namespace Standard.Licensing.Tests
             publicKey = keyPair.ToPublicKeyString();
         }
 
-        private static DateTime ConvertToRfc1123(DateTime dateTime)
+        private static DateTimeOffset ConvertToRfc1123(DateTimeOffset dateTime)
         {
-            return DateTime.ParseExact(
-                dateTime.ToUniversalTime().ToString("r", CultureInfo.InvariantCulture)
-                , "r", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
+            return DateTimeOffset.ParseExact(
+                dateTime.ToString("r", CultureInfo.InvariantCulture)
+                , "r", CultureInfo.InvariantCulture);
         }
 
         [Test]
@@ -70,11 +70,11 @@ namespace Standard.Licensing.Tests
 
             // validate default values when not set
             Assert.That(license.Id, Is.EqualTo(Guid.Empty));
-            Assert.That(license.Type, Is.EqualTo(LicenseType.Trial));
+            Assert.That(license.Type, Is.EqualTo(LicenseType.None));
             Assert.That(license.Quantity, Is.EqualTo(0));
             Assert.That(license.ProductFeatures, Is.Null);
             Assert.That(license.Customer, Is.Null);
-            Assert.That(license.Expiration, Is.EqualTo(ConvertToRfc1123(DateTime.MaxValue)));
+            Assert.That(license.Expiration, Is.EqualTo(ConvertToRfc1123(DateTimeOffset.MaxValue)));
 
             // verify signature
             Assert.That(license.VerifySignature(publicKey), Is.True);
@@ -115,11 +115,11 @@ namespace Standard.Licensing.Tests
             Assert.That(license.Type, Is.EqualTo(LicenseType.Standard));
             Assert.That(license.Quantity, Is.EqualTo(10));
             Assert.That(license.ProductFeatures, Is.Not.Null);
-            Assert.That(license.ProductFeatures.GetAll(), Is.EquivalentTo(productFeatures));
+            Assert.That(license.ProductFeatures, Is.EquivalentTo(productFeatures));
             Assert.That(license.Customer, Is.Not.Null);
             Assert.That(license.Customer.Name, Is.EqualTo(customerName));
             Assert.That(license.Customer.Email, Is.EqualTo(customerEmail));
-            Assert.That(license.Expiration, Is.EqualTo(ConvertToRfc1123(expirationDate)));
+            Assert.That(ConvertToRfc1123(license.Expiration), Is.EqualTo(ConvertToRfc1123(expirationDate)));
 
             // verify signature
             Assert.That(license.VerifySignature(publicKey), Is.True);
@@ -170,7 +170,7 @@ namespace Standard.Licensing.Tests
             Assert.That(hackedLicense.Type, Is.EqualTo(LicenseType.Standard));
             Assert.That(hackedLicense.Quantity, Is.EqualTo(11)); // now with 10+1 licenses
             Assert.That(hackedLicense.ProductFeatures, Is.Not.Null);
-            Assert.That(hackedLicense.ProductFeatures.GetAll(), Is.EquivalentTo(productFeatures));
+            Assert.That(hackedLicense.ProductFeatures, Is.EquivalentTo(productFeatures));
             Assert.That(hackedLicense.Customer, Is.Not.Null);
             Assert.That(hackedLicense.Customer.Name, Is.EqualTo(customerName));
             Assert.That(hackedLicense.Customer.Email, Is.EqualTo(customerEmail));

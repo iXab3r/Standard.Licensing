@@ -1,107 +1,45 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFrameworks>net8.0;net6.0;netstandard2.0;netstandard1.3;netstandard1.0;net45;net40;</TargetFrameworks>
-    <RootNamespace>Standard.Licensing</RootNamespace>
-    <AssemblyName>Standard.Licensing</AssemblyName>
-    <Authors>Junian Triajianto</Authors>
-    <NeutralLanguage>en</NeutralLanguage>
-    <Owners>junian</Owners>
-    <PackageProjectUrl>https://www.junian.dev/Standard.Licensing/</PackageProjectUrl>
-    <PackageReleaseNotes>v1.1.9
+    <PropertyGroup>
+        <TargetFrameworks>netstandard2.1;</TargetFrameworks>
+        <RootNamespace>Standard.Licensing</RootNamespace>
+        <AssemblyName>Standard.Licensing</AssemblyName>
+        <Authors>Junian Triajianto</Authors>
+        <NeutralLanguage>en</NeutralLanguage>
+        <Owners>junian</Owners>
+        <PackageProjectUrl>https://www.junian.dev/Standard.Licensing/</PackageProjectUrl>
+        <Summary>Easy-to-use licensing library for .NET Framework, Mono, .NET Core, and Xamarin products.</Summary>
+        <PackageTags>portable,licensing,key</PackageTags>
+        <Title>Standard.Licensing</Title>
+        <Description>Easy-to-use licensing library for .NET Framework, Mono, .NET Core, and Xamarin products.</Description>
+        <PackageId>Standard.Licensing</PackageId>
+        <Copyright>Copyright (c) 2018 - 2024</Copyright>
+        <RepositoryUrl>https://github.com/junian/Standard.Licensing</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <SignAssembly>true</SignAssembly>
+        <AssemblyOriginatorKeyFile>Standard.Licensing.snk</AssemblyOriginatorKeyFile>
+        <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+        <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+        <PackageIcon>standard-licensing-logo.png</PackageIcon>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <CLSCompliant>True</CLSCompliant>
 
-- Add custom DateTime to check Expiration date</PackageReleaseNotes>
-    <Summary>Easy-to-use licensing library for .NET Framework, Mono, .NET Core, and Xamarin products.</Summary>
-    <PackageTags>portable,licensing,key</PackageTags>
-    <Title>Standard.Licensing</Title>
-    <Description>Easy-to-use licensing library for .NET Framework, Mono, .NET Core, and Xamarin products.</Description>
-    <PackageId>Standard.Licensing</PackageId>
-    <Copyright>Copyright (c) 2018 - 2024</Copyright>
-    <RepositoryUrl>https://github.com/junian/Standard.Licensing</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>Standard.Licensing.snk</AssemblyOriginatorKeyFile>
-    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
-    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
-    <PackageIcon>standard-licensing-logo.png</PackageIcon>
-    <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <PackageReadmeFile>README.md</PackageReadmeFile>
-    <CLSCompliant>True</CLSCompliant>
-	
-    <!-- Versions -->
-    <AssemblyVersion>1.1.9.0</AssemblyVersion>
-    <ReleaseVersion>$(AssemblyVersion)</ReleaseVersion>
-    <Version>$(AssemblyVersion)</Version>
-    <FileVersion>$(AssemblyVersion)</FileVersion>
-  </PropertyGroup>
-	
-  <ItemGroup>
-    <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
-    <None Include="..\..\docs\README.md" Pack="true" PackagePath="\"/>
-    <None Include="..\..\assets\img\standard-licensing-logo.png" Pack="true" PackagePath="\"/>
-  </ItemGroup>
+        <!-- Versions -->
+        <AssemblyVersion>2.0.0.0</AssemblyVersion>
+        <ReleaseVersion>$(AssemblyVersion)</ReleaseVersion>
+        <Version>$(AssemblyVersion)</Version>
+        <FileVersion>$(AssemblyVersion)</FileVersion>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
 
-  <PropertyGroup Condition="'$(TargetFramework)'=='net45'">
-    <DefineConstants>LIB;PCL;SILVERLIGHT;$(AdditionalConstants)</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(TargetFramework)'=='net40'">
-    <DefineConstants>LIB;PCL;SILVERLIGHT;$(AdditionalConstants)</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(TargetFramework)'=='net35'">
-    <DefineConstants>LIB;PCL;SILVERLIGHT;$(AdditionalConstants)</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(TargetFramework)'=='net20'">
-    <DefineConstants>LIB;PCL;SILVERLIGHT;$(AdditionalConstants)</DefineConstants>
-  </PropertyGroup>
+    <ItemGroup>
+        <None Include="..\..\LICENSE" Pack="true" PackagePath="\"/>
+        <None Include="..\..\docs\README.md" Pack="true" PackagePath="\"/>
+        <None Include="..\..\assets\img\standard-licensing-logo.png" Pack="true" PackagePath="\"/>
+    </ItemGroup>
 
-  <ItemGroup Condition="'$(TargetFramework)'=='net20'">
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
-
-  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard1.0'">
-    <DefineConstants>NETSTANDARD1_0;PORTABLE;NO_THREADS;NEW_REFLECTION;SYS_RUNTIME;$(AdditionalConstants)</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard1.3'">
-    <DefineConstants>NETSTANDARD1_3;PORTABLE;NO_THREADS;NEW_REFLECTION;SYS_RUNTIME;DOTNET;$(AdditionalConstants)</DefineConstants>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
-    <DefineConstants>NETSTANDARD2_0;PORTABLE;NO_THREADS;NEW_REFLECTION;SYS_RUNTIME;DOTNET;$(AdditionalConstants)</DefineConstants>
-  </PropertyGroup>
-    
-  <PropertyGroup Condition="'$(TargetFramework)' == 'portable-net403+sl50+win8+wp8'">
-    <DefineConstants>PORTABLE;NO_THREADS;$(AdditionalConstants)</DefineConstants>
-    <TargetFrameworkIdentifier>.NETPortable</TargetFrameworkIdentifier>
-    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
-    <TargetFrameworkProfile>Profile147</TargetFrameworkProfile>
-    <NugetTargetMoniker>.NETPortable,Version=v0.0,Profile=Profile147</NugetTargetMoniker>
-    <LanguageTargets>$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets</LanguageTargets>
-  </PropertyGroup>
-    
-  <PropertyGroup Condition="'$(TargetFramework)' == 'portable-net45+win8+wpa81+wp8'">
-    <DefineConstants>PORTABLE;NO_THREADS;NEW_REFLECTION;SYS_RUNTIME;$(AdditionalConstants)</DefineConstants>
-    <TargetFrameworkIdentifier>.NETPortable</TargetFrameworkIdentifier>
-    <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
-    <TargetFrameworkProfile>Profile259</TargetFrameworkProfile>
-    <NugetTargetMoniker>.NETPortable,Version=v0.0,Profile=Profile259</NugetTargetMoniker>
-    <LanguageTargets>$(MSBuildExtensionsPath32)\Microsoft\Portable\$(TargetFrameworkVersion)\Microsoft.Portable.CSharp.targets</LanguageTargets>
-  </PropertyGroup>
-
-  <ItemGroup>
-    <Compile Include="..\..\external\bc-csharp\crypto\src\**\*.cs">
-        <Link>BouncyCastle.Crypto\src\%(RecursiveDir)%(Filename)%(Extension)</Link>
-    </Compile>
-    <Compile Include="..\..\external\bc-csharp\crypto\bzip2\**\*.cs">
-        <Link>BouncyCastle.Crypto\bzip2\%(RecursiveDir)%(Filename)%(Extension)</Link>
-    </Compile>
-  </ItemGroup>
-
-  <ItemGroup>
-    <Compile Remove="..\..\external\bc-csharp\crypto\src\AssemblyInfo.cs" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="Portable.BouncyCastle" Version="1.9.0" />
+    </ItemGroup>
 </Project>

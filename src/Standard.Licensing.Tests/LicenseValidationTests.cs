@@ -188,10 +188,10 @@ namespace Standard.Licensing.Tests
 
             var validationResults = license
                 .Validate()
-                .AssertThat(lic => lic.ProductFeatures.Contains("Sales Module"),
+                .AssertThat(lic => lic.ProductFeatures.ContainsKey("Sales Module"),
                             new GeneralValidationFailure {Message = "Sales Module not licensed!"})
                 .And()
-                .AssertThat(lic => lic.AdditionalAttributes.Get("Assembly Signature") == "123456789",
+                .AssertThat(lic => lic.AdditionalAttributes["Assembly Signature"] == "123456789",
                             new GeneralValidationFailure {Message = "Assembly Signature does not match!"})
                 .And()
                 .Signature(publicKey)

@@ -25,164 +25,168 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 
-namespace Standard.Licensing
+namespace Standard.Licensing;
+
+/// <summary>
+/// Implementation of the <see cref="ILicenseBuilder"/>, a fluent api
+/// to create new licenses.
+/// </summary>
+internal class LicenseBuilder : ILicenseBuilder
 {
+    private readonly Dictionary<string, string> productFeatures = new Dictionary<string, string>();
+    private readonly Dictionary<string, string> additionalAttributes = new Dictionary<string, string>();
+    private readonly List<License> sublicenses = new();
+        
+    public Guid Id { get; private set; }
+
+    public IReadOnlyDictionary<string, string> ProductFeatures => productFeatures;
+
+    public Customer Customer { get; private set; }
+
+    public IReadOnlyDictionary<string, string> AdditionalAttributes => additionalAttributes;
+
+    public IReadOnlyList<License> Sublicenses => sublicenses;
+
+    public DateTimeOffset? Expiration { get; private set; }
+    
+    public LicenseType? Type { get; private set; }
+    
+    public int Quantity { get; private set; }
+        
+    public string Signature { get; private set; }
+
     /// <summary>
-    /// Implementation of the <see cref="ILicenseBuilder"/>, a fluent api
-    /// to create new licenses.
+    /// Initializes a new instance of the <see cref="LicenseBuilder"/> class.
     /// </summary>
-    internal class LicenseBuilder : ILicenseBuilder
+    public LicenseBuilder()
     {
-        private readonly License license;
+    }
+        
+    /// <summary>
+    /// Sets the unique identifier of the <see cref="License"/>.
+    /// </summary>
+    /// <param name="id">The unique identifier of the <see cref="License"/>.</param>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
+    public ILicenseBuilder WithUniqueIdentifier(Guid id)
+    {
+        Id = id;
+        return this;
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="LicenseBuilder"/> class.
-        /// </summary>
-        public LicenseBuilder()
-        {
-            license = new License();
-        }
+    /// <summary>
+    /// Sets the expiration date of the <see cref="License"/>.
+    /// </summary>
+    /// <param name="date">The expiration date of the <see cref="License"/>.</param>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
+    public ILicenseBuilder ExpiresAt(DateTimeOffset date)
+    {
+        Expiration = date;
+        return this;
+    }
 
-        /// <summary>
-        /// Sets the unique identifier of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="id">The unique identifier of the <see cref="License"/>.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder WithUniqueIdentifier(Guid id)
-        {
-            license.Id = id;
-            return this;
-        }
+    public ILicenseBuilder As(LicenseType type)
+    {
+        this.Type = type;
+        return this;
+    }
 
-        /// <summary>
-        /// Sets the <see cref="LicenseType"/> of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="type">The <see cref="LicenseType"/> of the <see cref="License"/>.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder As(LicenseType type)
-        {
-            license.Type = type;
-            return this;
-        }
+    public ILicenseBuilder WithMaximumUtilization(int utilization)
+    {
+        Quantity = utilization;
+        return this;
+    }
 
-        /// <summary>
-        /// Sets the expiration date of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="date">The expiration date of the <see cref="License"/>.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder ExpiresAt(DateTime date)
+    public ILicenseBuilder LicensedTo(string name)
+    {
+        Customer = new Customer()
         {
-            license.Expiration = date.ToUniversalTime();
-            return this;
-        }
+            Name = name
+        };
+        return this;
+    }
 
-        /// <summary>
-        /// Sets the maximum utilization of the <see cref="License"/>.
-        /// This can be the quantity of developers for a "per-developer-license".
-        /// </summary>
-        /// <param name="utilization">The maximum utilization of the <see cref="License"/>.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder WithMaximumUtilization(int utilization)
+    /// <summary>
+    /// Sets the <see cref="Customer">license holder</see> of the <see cref="License"/>.
+    /// </summary>
+    /// <param name="name">The name of the license holder.</param>
+    /// <param name="email">The email of the license holder.</param>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
+    public ILicenseBuilder LicensedTo(string name, string email)
+    {
+        Customer = new Customer()
         {
-            license.Quantity = utilization;
-            return this;
-        }
+            Email = email,
+            Name = name
+        };
+        return this;
+    }
 
-        /// <summary>
-        /// Sets the <see cref="Customer">license holder</see> of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="name">The name of the license holder.</param>
-        /// <param name="email">The email of the license holder.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder LicensedTo(string name, string email)
+    /// <summary>
+    /// Sets the licensed product features of the <see cref="License"/>.
+    /// </summary>
+    /// <param name="productFeatures">The licensed product features of the <see cref="License"/>.</param>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
+    public ILicenseBuilder WithProductFeatures(IDictionary<string, string> productFeatures)
+    {
+        foreach (var kvp in productFeatures)
         {
-            license.Customer.Name = name;
-            license.Customer.Email = email;
-            return this;
+            this.productFeatures.Add(kvp.Key, kvp.Value);
         }
+        return this;
+    }
 
-        /// <summary>
-        /// Sets the <see cref="Customer">license holder</see> of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="name">The name of the license holder.</param>
-        /// <param name="email">The email of the license holder.</param>
-        /// <param name="configureCustomer">A delegate to configure the license holder.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder LicensedTo(string name, string email, Action<Customer> configureCustomer)
+    /// <summary>
+    /// Sets the licensed additional attributes of the <see cref="License"/>.
+    /// </summary>
+    /// <param name="additionalAttributes">The additional attributes of the <see cref="License"/>.</param>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
+    public ILicenseBuilder WithAdditionalAttributes(IDictionary<string, string> additionalAttributes)
+    {
+        foreach (var kvp in additionalAttributes)
         {
-            license.Customer.Name = name;
-            license.Customer.Email = email;
-            configureCustomer(license.Customer);
-            return this;
+            this.additionalAttributes.Add(kvp.Key, kvp.Value);
         }
+        return this;
+    }
 
-        /// <summary>
-        /// Sets the <see cref="Customer">license holder</see> of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="configureCustomer">A delegate to configure the license holder.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder LicensedTo(Action<Customer> configureCustomer)
+    public ILicenseBuilder WithSublicenses(IEnumerable<License> sublicenses)
+    {
+        foreach (var license in sublicenses)
         {
-            configureCustomer(license.Customer);
-            return this;
+            this.sublicenses.Add(license);
         }
+        return this;
+    }
 
-        /// <summary>
-        /// Sets the licensed product features of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="productFeatures">The licensed product features of the <see cref="License"/>.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder WithProductFeatures(IDictionary<string, string> productFeatures)
-        {
-            license.ProductFeatures.AddAll(productFeatures);
-            return this;
-        }
+    /// <summary>
+    /// Create and sign a new <see cref="License"/> with the specified
+    /// private encryption key.
+    /// </summary>
+    /// <param name="privateKey">The private encryption key for the signature.</param>
+    /// <param name="passPhrase">The pass phrase to decrypt the private key.</param>
+    /// <returns>The signed <see cref="License"/>.</returns>
+    public License CreateAndSignWithPrivateKey(string privateKey, string passPhrase)
+    {
+        var license = Create();
+        return license.Sign(privateKey, passPhrase);
+    }
 
-        /// <summary>
-        /// Sets the licensed product features of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="configureProductFeatures">A delegate to configure the product features.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder WithProductFeatures(Action<LicenseAttributes> configureProductFeatures)
+    public License Create()
+    {
+        var license = new License()
         {
-            configureProductFeatures(license.ProductFeatures);
-            return this;
-        }
-
-        /// <summary>
-        /// Sets the licensed additional attributes of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="additionalAttributes">The additional attributes of the <see cref="License"/>.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder WithAdditionalAttributes(IDictionary<string, string> additionalAttributes)
-        {
-            license.AdditionalAttributes.AddAll(additionalAttributes);
-            return this;
-        }
-
-        /// <summary>
-        /// Sets the licensed additional attributes of the <see cref="License"/>.
-        /// </summary>
-        /// <param name="configureAdditionalAttributes">A delegate to configure the additional attributes.</param>
-        /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
-        public ILicenseBuilder WithAdditionalAttributes(Action<LicenseAttributes> configureAdditionalAttributes)
-        {
-            configureAdditionalAttributes(license.AdditionalAttributes);
-            return this;
-        }
-
-        /// <summary>
-        /// Create and sign a new <see cref="License"/> with the specified
-        /// private encryption key.
-        /// </summary>
-        /// <param name="privateKey">The private encryption key for the signature.</param>
-        /// <param name="passPhrase">The pass phrase to decrypt the private key.</param>
-        /// <returns>The signed <see cref="License"/>.</returns>
-        public License CreateAndSignWithPrivateKey(string privateKey, string passPhrase)
-        {
-            license.Sign(privateKey, passPhrase);
-            return license;
-        }
+            Id = Id,
+            Customer = EqualityComparer<Customer>.Default.Equals(Customer, default) ? null : Customer,
+            AdditionalAttributes = AdditionalAttributes.Any() ? AdditionalAttributes : null,
+            ProductFeatures = ProductFeatures.Any() ? ProductFeatures : null,
+            Expiration = Expiration ?? License.DefaultExpirationDate,
+            Quantity = Quantity,
+            Sublicenses = sublicenses,
+            Type = Type ?? LicenseType.None,
+        };
+        return license;
     }
 }

@@ -1,4 +1,4 @@
-﻿﻿//
+﻿//
 // Copyright © 2012 - 2013 Nauck IT KG     http://www.nauck-it.de
 //
 // Author:
@@ -24,351 +24,254 @@
 // WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System;
+using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
+using System.Linq;
 using System.Text;
-using System.Xml;
 using System.Xml.Linq;
 using Org.BouncyCastle.Asn1.X9;
 using Org.BouncyCastle.Security;
 using Standard.Licensing.Security.Cryptography;
 
-namespace Standard.Licensing
+namespace Standard.Licensing;
+
+public sealed record License
 {
+    public static readonly string DefaultExpirationDateString = DateTimeOffset.MaxValue.ToString("r", CultureInfo.InvariantCulture);
+    public static readonly DateTimeOffset DefaultExpirationDate = DateTimeOffset.ParseExact(DefaultExpirationDateString, "r", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
+    private static readonly string SignatureAlgorithm = X9ObjectIdentifiers.ECDsaWithSha512.Id;
+
     /// <summary>
-    /// A software license
+    /// To validate signature we need to analyze exactly the same text which was provided.
+    /// That is why we're keeping both the parsed data AND the license xml
     /// </summary>
-    public class License
+    private readonly XElement loadedLicenseXmlDataWithoutSignature;
+
+    internal License()
     {
-        private readonly XElement xmlData;
-        private readonly string signatureAlgorithm = X9ObjectIdentifiers.ECDsaWithSha512.Id;
+        loadedLicenseXmlDataWithoutSignature = default;
+    }
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="License"/> class.
-        /// </summary>
-        internal License()
-        {
-            xmlData = new XElement("License");
-        }
+    internal License(string licenseXml)
+    {
+        var licenseElement = XElement.Parse(licenseXml);
+        var id = Guid.Parse(licenseElement.Element("Id")?.Value ?? Guid.Empty.ToString());
+        var version = int.Parse(licenseElement.Attribute("version")?.Value ?? "0");
+        var type = Enum.Parse<LicenseType>(licenseElement.Element("Type")?.Value ?? LicenseType.None.ToString(), true);
+        var quantity = int.Parse(licenseElement.Element("Quantity")?.Value ?? "0");
+        var expiration = string.IsNullOrEmpty(licenseElement.Element("Expiration")?.Value)
+            ? DefaultExpirationDate
+            : DateTimeOffset.ParseExact(licenseElement.Element("Expiration")?.Value, "r", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="License"/> class
-        /// with the specified content.
-        /// </summary>
-        /// <remarks>This constructor is only used for loading from XML.</remarks>
-        /// <param name="xmlData">The initial content of this <see cref="License"/>.</param>
-        internal License(XElement xmlData)
-        {
-            this.xmlData = xmlData;
-        }
+        var productFeatures = licenseElement.Element("ProductFeatures")
+            ?.Elements("Feature")
+            .ToDictionary(e => e.Attribute("name")?.Value, e => e.Value);
 
-        /// <summary>
-        /// Gets or sets the unique identifier of this <see cref="License"/>.
-        /// </summary>
-        public Guid Id
-        {
-            get { return new Guid(GetTag("Id") ?? Guid.Empty.ToString()); }
-            set { if (!IsSigned) SetTag("Id", value.ToString()); }
-        }
+        var additionalAttributes = licenseElement.Element("LicenseAttributes")
+            ?.Elements("Attribute")
+            .ToDictionary(e => e.Attribute("name")?.Value, e => e.Value);
 
-        /// <summary>
-        /// Gets or set the <see cref="LicenseType"/> or this <see cref="License"/>.
-        /// </summary>
-        public LicenseType Type
-        {
-            get
+        var sublicenses = licenseElement.Element("Sublicenses")
+            ?.Elements("License")
+            .Select(x =>
             {
-                return
-                    (LicenseType)
-                    Enum.Parse(typeof (LicenseType), GetTag("Type") ?? LicenseType.Trial.ToString(), false);
+                var sublicenseXml = x.ToString();
+                var sublicense = Load(sublicenseXml);
+                return sublicense;
+            }).ToArray();
+
+        var customerElement = licenseElement.Element("Customer");
+        var customer = customerElement != null
+            ? new Customer
+            {
+                Name = customerElement.Element("Name")?.Value,
+                Email = customerElement.Element("Email")?.Value
             }
-            set { if (!IsSigned) SetTag("Type", value.ToString()); }
+            : null;
+
+        var signatureElement = licenseElement.Element("Signature");
+        var signature = signatureElement?.Value;
+        signatureElement?.Remove();
+
+        loadedLicenseXmlDataWithoutSignature = licenseElement;
+
+        Id = id;
+        Type = type;
+        Quantity = quantity;
+        Expiration = expiration;
+        ProductFeatures = productFeatures;
+        AdditionalAttributes = additionalAttributes;
+        Customer = customer;
+        Version = version;
+        Signature = signature;
+        Sublicenses = sublicenses;
+    }
+
+    public Guid Id { get; init; }
+
+    public Customer Customer { get; init; }
+
+    public DateTimeOffset Expiration { get; init; }
+
+    public LicenseType Type { get; init; }
+
+    public int Quantity { get; init; }
+    
+    public int Version { get; init; }
+
+    public IReadOnlyDictionary<string, string> ProductFeatures { get; init; }
+
+    public IReadOnlyDictionary<string, string> AdditionalAttributes { get; init; }
+    
+    public IReadOnlyList<License> Sublicenses { get; init; }
+
+    public string Signature { get; }
+
+    public static ILicenseBuilder New()
+    {
+        return new LicenseBuilder();
+    }
+
+    public static License Load(string licenseXml)
+    {
+        return new License(licenseXml);
+    }
+
+    public override string ToString()
+    {
+        var xmlData = GetLicenseXmlElementWithoutSignature();
+        if (!string.IsNullOrEmpty(Signature))
+        {
+            xmlData.Add(new XElement("Signature", Signature));
         }
 
-        /// <summary>
-        /// Get or sets the quantity of this license.
-        /// E.g. the count of per-developer-licenses.
-        /// </summary>
-        public int Quantity
+        return xmlData.ToString();
+    }
+
+    public License Sign(string privateKey, string passPhrase)
+    {
+        var newLicenseData = GetLicenseXmlElementWithoutSignature();
+        var privKey = KeyFactory.FromEncryptedPrivateKeyString(privateKey, passPhrase);
+
+        var documentToSign = Encoding.UTF8.GetBytes(newLicenseData.ToString(SaveOptions.DisableFormatting));
+        var signer = SignerUtilities.GetSigner(SignatureAlgorithm);
+        signer.Init(true, privKey);
+        signer.BlockUpdate(documentToSign, 0, documentToSign.Length);
+        
+        var signatureBytes = signer.GenerateSignature();
+        var signatureBase64 = Convert.ToBase64String(signatureBytes);
+
+        newLicenseData.Add(new XElement("Signature", signatureBase64));
+
+        return new License(newLicenseData.ToString());
+    }
+
+    public bool VerifySignature(string publicKey)
+    {
+        var xmlData = loadedLicenseXmlDataWithoutSignature;
+        var signTag = Signature;
+
+        if (signTag == null || xmlData == null)
         {
-            get { return int.Parse(GetTag("Quantity") ?? "0"); }
-            set { if (!IsSigned) SetTag("Quantity", value.ToString()); }
+            return false;
         }
 
-        /// <summary>
-        /// Gets or sets the product features of this <see cref="License"/>.
-        /// </summary>
-        public LicenseAttributes ProductFeatures
+        var pubKey = KeyFactory.FromPublicKeyString(publicKey);
+
+        var dataToSign = xmlData.ToString(SaveOptions.DisableFormatting);
+        var documentToSign = Encoding.UTF8.GetBytes(dataToSign);
+        var signer = SignerUtilities.GetSigner(SignatureAlgorithm);
+        signer.Init(false, pubKey);
+        signer.BlockUpdate(documentToSign, 0, documentToSign.Length);
+
+        var signatureBase64 = Convert.FromBase64String(signTag);
+        var isValid = signer.VerifySignature(signatureBase64);
+        return isValid;
+    }
+
+    private XElement GetLicenseXmlElementWithoutSignature()
+    {
+        var elements = new List<object>();
+
+        if (!EqualityComparer<Guid>.Default.Equals(Id, default))
         {
-            get
+            elements.Add(new XElement("Id", Id));
+        }
+
+        if (!EqualityComparer<LicenseType>.Default.Equals(Type, default))
+        {
+            elements.Add(new XElement("Type", Type.ToString()));
+        }
+
+        if (!EqualityComparer<int>.Default.Equals(Quantity, default))
+        {
+            elements.Add(new XElement("Quantity", Quantity.ToString()));
+        }
+
+        if (!EqualityComparer<Customer>.Default.Equals(Customer, default))
+        {
+            var customer = new XElement("Customer");
+            if (!string.IsNullOrEmpty(Customer.Name))
             {
-                var xmlElement = xmlData.Element("ProductFeatures");
-
-                if (!IsSigned && xmlElement == null)
-                {
-                    xmlData.Add(new XElement("ProductFeatures"));
-                    xmlElement = xmlData.Element("ProductFeatures");
-                }
-                else if (IsSigned && xmlElement == null)
-                {
-                    return null;
-                }
-
-                return new LicenseAttributes(xmlElement, "Feature");
+                customer.Add(new XElement("Name", Customer.Name));
             }
+
+            if (!string.IsNullOrEmpty(Customer.Email))
+            {
+                customer.Add(new XElement("Email", Customer.Email));
+            }
+
+            elements.Add(customer);
         }
 
-        /// <summary>
-        /// Gets or sets the <see cref="Customer"/> of this <see cref="License"/>.
-        /// </summary>
-        public Customer Customer
+        if (AdditionalAttributes != null && AdditionalAttributes.Any())
         {
-            get
+            var attributes = new XElement("LicenseAttributes");
+            elements.Add(attributes);
+            foreach (var kvp in AdditionalAttributes)
             {
-                var xmlElement = xmlData.Element("Customer");
-
-                if (!IsSigned && xmlElement == null)
-                {
-                    xmlData.Add(new XElement("Customer"));
-                    xmlElement = xmlData.Element("Customer");
-                }
-                else if (IsSigned && xmlElement == null)
-                {
-                    return null;
-                }
-
-                return new Customer(xmlElement);
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the additional attributes of this <see cref="License"/>.
-        /// </summary>
-        public LicenseAttributes AdditionalAttributes
-        {
-            get
-            {
-                var xmlElement = xmlData.Element("LicenseAttributes");
-
-                if (!IsSigned && xmlElement == null)
-                {
-                    xmlData.Add(new XElement("LicenseAttributes"));
-                    xmlElement = xmlData.Element("LicenseAttributes");
-                }
-                else if (IsSigned && xmlElement == null)
-                {
-                    return null;
-                }
-                
-                return new LicenseAttributes(xmlElement, "Attribute");
-            }
-        }
-
-        /// <summary>
-        /// Gets or sets the expiration date of this <see cref="License"/>.
-        /// Use this property to set the expiration date for a trial license
-        /// or the expiration of support & subscription updates for a standard license.
-        /// </summary>
-        public DateTime Expiration
-        {
-            get
-            {
-                return
-                    DateTime.ParseExact(
-                        GetTag("Expiration") ??
-                        DateTime.MaxValue.ToUniversalTime().ToString("r", CultureInfo.InvariantCulture)
-                        , "r", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
-            }
-            set { if (!IsSigned) SetTag("Expiration", value.ToUniversalTime().ToString("r", CultureInfo.InvariantCulture)); }
-        }
-
-        /// <summary>
-        /// Gets the digital signature of this license.
-        /// </summary>
-        /// <remarks>Use the <see cref="License.Sign"/> method to compute a signature.</remarks>
-        public string Signature
-        {
-            get { return GetTag("Signature"); }
-        }
-
-        /// <summary>
-        /// Compute a signature and sign this <see cref="License"/> with the provided key.
-        /// </summary>
-        /// <param name="privateKey">The private key in xml string format to compute the signature.</param>
-        /// <param name="passPhrase">The pass phrase to decrypt the private key.</param>
-        public void Sign(string privateKey, string passPhrase)
-        {
-            var signTag = xmlData.Element("Signature") ?? new XElement("Signature");
-
-            try
-            {
-                if (signTag.Parent != null)
-                    signTag.Remove();
-
-                var privKey = KeyFactory.FromEncryptedPrivateKeyString(privateKey, passPhrase);
-
-                var documentToSign = Encoding.UTF8.GetBytes(xmlData.ToString(SaveOptions.DisableFormatting));
-                var signer = SignerUtilities.GetSigner(signatureAlgorithm);
-                signer.Init(true, privKey);
-                signer.BlockUpdate(documentToSign, 0, documentToSign.Length);
-                var signature = signer.GenerateSignature();
-                signTag.Value = Convert.ToBase64String(signature);
-            }
-            finally
-            {
-                xmlData.Add(signTag);
-            }
-        }
-
-        /// <summary>
-        /// Determines whether the <see cref="License.Signature"/> property verifies for the specified key.
-        /// </summary>
-        /// <param name="publicKey">The public key in xml string format to verify the <see cref="License.Signature"/>.</param>
-        /// <returns>true if the <see cref="License.Signature"/> verifies; otherwise false.</returns>
-        public bool VerifySignature(string publicKey)
-        {
-            var signTag = xmlData.Element("Signature");
-
-            if (signTag == null)
-                return false;
-
-            try
-            {
-                signTag.Remove();
-
-                var pubKey = KeyFactory.FromPublicKeyString(publicKey);
-
-                var documentToSign = Encoding.UTF8.GetBytes(xmlData.ToString(SaveOptions.DisableFormatting));
-                var signer = SignerUtilities.GetSigner(signatureAlgorithm);
-                signer.Init(false, pubKey);
-                signer.BlockUpdate(documentToSign, 0, documentToSign.Length);
-
-                return signer.VerifySignature(Convert.FromBase64String(signTag.Value));
-            }
-            finally
-            {
-                xmlData.Add(signTag);
+                var featureElement = new XElement("Attribute");
+                featureElement.SetAttributeValue("name", kvp.Key);
+                featureElement.Value = kvp.Value;
+                attributes.Add(featureElement);
             }
         }
 
-        /// <summary>
-        /// Create a new <see cref="License"/> using the <see cref="ILicenseBuilder"/>
-        /// fluent api.
-        /// </summary>
-        /// <returns>An instance of the <see cref="ILicenseBuilder"/> class.</returns>
-        public static ILicenseBuilder New()
+        if (!EqualityComparer<DateTimeOffset>.Default.Equals(Expiration, default))
         {
-            return new LicenseBuilder();
+            elements.Add(new XElement("Expiration", Expiration.ToString("r", CultureInfo.InvariantCulture)));
         }
 
-        /// <summary>
-        /// Loads a <see cref="License"/> from a string that contains XML.
-        /// </summary>
-        /// <param name="xmlString">A <see cref="string"/> that contains XML.</param>
-        /// <returns>A <see cref="License"/> populated from the <see cref="string"/> that contains XML.</returns>
-        public static License Load(string xmlString)
+        if (ProductFeatures != null && ProductFeatures.Any())
         {
-            return new License(XElement.Parse(xmlString, LoadOptions.None));
+            var features = new XElement("ProductFeatures");
+            elements.Add(features);
+            foreach (var kvp in ProductFeatures)
+            {
+                var featureElement = new XElement("Feature");
+                featureElement.SetAttributeValue("name", kvp.Key);
+                featureElement.Value = kvp.Value;
+                features.Add(featureElement);
+            }
         }
 
-        /// <summary>
-        /// Loads a <see cref="License"/> by using the specified <see cref="Stream"/>
-        /// that contains the XML.
-        /// </summary>
-        /// <param name="stream">A <see cref="Stream"/> that contains the XML.</param>
-        /// <returns>A <see cref="License"/> populated from the <see cref="Stream"/> that contains XML.</returns>
-        public static License Load(Stream stream)
+        if (Sublicenses != null && Sublicenses.Any())
         {
-            return new License(XElement.Load(stream, LoadOptions.None));
-        }
-
-        /// <summary>
-        /// Loads a <see cref="License"/> by using the specified <see cref="TextReader"/>
-        /// that contains the XML.
-        /// </summary>
-        /// <param name="reader">A <see cref="TextReader"/> that contains the XML.</param>
-        /// <returns>A <see cref="License"/> populated from the <see cref="TextReader"/> that contains XML.</returns>
-        public static License Load(TextReader reader)
-        {
-            return new License(XElement.Load(reader, LoadOptions.None));
-        }
-
-        /// <summary>
-        /// Loads a <see cref="License"/> by using the specified <see cref="XmlReader"/>
-        /// that contains the XML.
-        /// </summary>
-        /// <param name="reader">A <see cref="XmlReader"/> that contains the XML.</param>
-        /// <returns>A <see cref="License"/> populated from the <see cref="TextReader"/> that contains XML.</returns>
-        public static License Load(XmlReader reader)
-        {
-            return new License(XElement.Load(reader, LoadOptions.None));
-        }
-
-        /// <summary>
-        /// Serialize this <see cref="License"/> to a <see cref="Stream"/>.
-        /// </summary>
-        /// <param name="stream">A <see cref="Stream"/> that the 
-        /// <see cref="License"/> will be written to.</param>
-        public void Save(Stream stream)
-        {
-            xmlData.Save(stream);
+            var sublicenses = new XElement("Sublicenses");
+            elements.Add(sublicenses);
+            
+            foreach (var license in Sublicenses)
+            {
+                var licenseElement = license.GetLicenseXmlElementWithoutSignature();
+                sublicenses.Add(licenseElement);
+            }
         }
         
-        /// <summary>
-        /// Serialize this <see cref="License"/> to a <see cref="TextWriter"/>.
-        /// </summary>
-        /// <param name="textWriter">A <see cref="TextWriter"/> that the 
-        /// <see cref="License"/> will be written to.</param>
-        public void Save(TextWriter textWriter)
+        var xmlData = new XElement("License", elements.ToArray());
+        if (Version > 0)
         {
-            xmlData.Save(textWriter);
+            xmlData.SetAttributeValue("version", Version);
         }
-
-        /// <summary>
-        /// Serialize this <see cref="License"/> to a <see cref="XmlWriter"/>.
-        /// </summary>
-        /// <param name="xmlWriter">A <see cref="XmlWriter"/> that the 
-        /// <see cref="License"/> will be written to.</param>
-        public void Save(XmlWriter xmlWriter)
-        {
-            xmlData.Save(xmlWriter);
-        }
-
-        /// <summary>
-        /// Returns the indented XML for this <see cref="License"/>.
-        /// </summary>
-        /// <returns>A string containing the indented XML.</returns>
-        public override string ToString()
-        {
-            return xmlData.ToString();
-        }
-
-        /// <summary>
-        /// Gets a value indicating whether this <see cref="License"/> is already signed.
-        /// </summary>
-        private bool IsSigned
-        {
-            get { return (!string.IsNullOrEmpty(Signature)); }
-        }
-
-        private void SetTag(string name, string value)
-        {
-            var element = xmlData.Element(name);
-
-            if (element == null)
-            {
-                element = new XElement(name);
-                xmlData.Add(element);
-            }
-
-            if (value != null)
-                element.Value = value;
-        }
-
-        private string GetTag(string name)
-        {
-            var element = xmlData.Element(name);
-            return element != null ? element.Value : null;
-        }
+        return xmlData;
     }
 }
