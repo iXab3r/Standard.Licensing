@@ -147,7 +147,7 @@ internal class LicenseBuilder : ILicenseBuilder
     {
         foreach (var kvp in additionalAttributes)
         {
-            this.additionalAttributes.Add(kvp.Key, kvp.Value);
+            this.additionalAttributes[kvp.Key] = kvp.Value;
         }
         return this;
     }
