@@ -30,6 +30,7 @@ using System.Linq;
 using System.Text;
 using System.Xml.Linq;
 using Org.BouncyCastle.Asn1.X9;
+using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Security;
 using Standard.Licensing.Security.Cryptography;
 
@@ -137,6 +138,16 @@ public sealed record License
         return new License(licenseXml);
     }
 
+    public static AsymmetricKeyParameter LoadPrivateKey(string privateKey, string passPhrase)
+    {
+        return KeyFactory.FromEncryptedPrivateKeyString(privateKey, passPhrase);
+    }
+
+    public static AsymmetricKeyParameter LoadPublicKey(string publicKey)
+    {
+        return KeyFactory.FromPublicKeyString(publicKey);
+    }
+    
     public override string ToString()
     {
         var xmlData = GetLicenseXmlElementWithoutSignature();
@@ -151,7 +162,7 @@ public sealed record License
     public License Sign(string privateKey, string passPhrase)
     {
         var newLicenseData = GetLicenseXmlElementWithoutSignature();
-        var privKey = KeyFactory.FromEncryptedPrivateKeyString(privateKey, passPhrase);
+        var privKey = LoadPrivateKey(privateKey, passPhrase);
 
         var documentToSign = Encoding.UTF8.GetBytes(newLicenseData.ToString(SaveOptions.DisableFormatting));
         var signer = SignerUtilities.GetSigner(SignatureAlgorithm);
@@ -176,7 +187,7 @@ public sealed record License
             return false;
         }
 
-        var pubKey = KeyFactory.FromPublicKeyString(publicKey);
+        var pubKey = LoadPublicKey(publicKey);
 
         var dataToSign = xmlData.ToString(SaveOptions.DisableFormatting);
         var documentToSign = Encoding.UTF8.GetBytes(dataToSign);
