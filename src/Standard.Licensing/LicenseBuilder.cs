@@ -131,10 +131,17 @@ internal class LicenseBuilder : ILicenseBuilder
     /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
     public ILicenseBuilder WithProductFeatures(IDictionary<string, string> productFeatures)
     {
+        this.productFeatures.Clear();
         foreach (var kvp in productFeatures)
         {
-            this.productFeatures.Add(kvp.Key, kvp.Value);
+            this.productFeatures[kvp.Key] = kvp.Value;
         }
+        return this;
+    }
+
+    public ILicenseBuilder AddProductFeatures(string featureName, string value)
+    {
+        this.productFeatures[featureName] = value;
         return this;
     }
 
@@ -145,6 +152,7 @@ internal class LicenseBuilder : ILicenseBuilder
     /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
     public ILicenseBuilder WithAdditionalAttributes(IDictionary<string, string> additionalAttributes)
     {
+        this.productFeatures.Clear();
         foreach (var kvp in additionalAttributes)
         {
             this.additionalAttributes[kvp.Key] = kvp.Value;
@@ -152,12 +160,25 @@ internal class LicenseBuilder : ILicenseBuilder
         return this;
     }
 
+    public ILicenseBuilder AddAdditionalAttribute(string attributeName, string value)
+    {
+        this.additionalAttributes[attributeName] = value;
+        return this;
+    }
+
     public ILicenseBuilder WithSublicenses(IEnumerable<License> sublicenses)
     {
+        this.sublicenses.Clear();
         foreach (var license in sublicenses)
         {
             this.sublicenses.Add(license);
         }
+        return this;
+    }
+
+    public ILicenseBuilder AddSublicense(License sublicense)
+    {
+        this.sublicenses.Add(sublicense);
         return this;
     }
 

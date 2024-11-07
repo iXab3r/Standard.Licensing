@@ -34,6 +34,41 @@ namespace Standard.Licensing;
 public interface ILicenseBuilder : IFluentInterface
 {
     /// <summary>
+    /// Gets unique identifier of the <see cref="License"/>.
+    /// </summary>
+    Guid Id { get; }
+    
+    /// <summary>
+    /// Gets the licensed product features of the <see cref="License"/>.
+    /// </summary>
+    IReadOnlyDictionary<string, string> ProductFeatures { get; }
+
+    /// <summary>
+    /// Gets <see cref="Customer">license holder</see> of the <see cref="License"/>.
+    /// </summary>
+    Customer Customer { get; }
+
+    /// <summary>
+    /// Gets the licensed additional attributes of the <see cref="License"/>.
+    /// </summary>
+    IReadOnlyDictionary<string, string> AdditionalAttributes { get; }
+
+    /// <summary>
+    /// Gets the licensed submodules of the <see cref="License"/>.
+    /// </summary>
+    IReadOnlyList<License> Sublicenses { get; }
+
+    /// <summary>
+    /// Gets expiration date of the <see cref="License"/>.
+    /// </summary>
+    DateTimeOffset? Expiration { get; }
+    
+    /// <summary>
+    /// Gets the <see cref="LicenseType"/> of the <see cref="License"/>.
+    /// </summary>
+    LicenseType? Type { get; }
+    
+    /// <summary>
     /// Sets the unique identifier of the <see cref="License"/>.
     /// </summary>
     /// <param name="id">The unique identifier of the <see cref="License"/>.</param>
@@ -78,6 +113,12 @@ public interface ILicenseBuilder : IFluentInterface
     /// <param name="productFeatures">The licensed product features of the <see cref="License"/>.</param>
     /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
     ILicenseBuilder WithProductFeatures(IDictionary<string, string> productFeatures);
+    
+    /// <summary>
+    /// Sets the licensed product features of the <see cref="License"/>.
+    /// </summary>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
+    ILicenseBuilder AddProductFeatures(string featureName, string value);
 
     /// <summary>
     /// Sets the licensed additional attributes of the <see cref="License"/>.
@@ -85,8 +126,25 @@ public interface ILicenseBuilder : IFluentInterface
     /// <param name="additionalAttributes">The additional attributes of the <see cref="License"/>.</param>
     /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
     ILicenseBuilder WithAdditionalAttributes(IDictionary<string, string> additionalAttributes);
+    
+    /// <summary>
+    /// Sets the licensed additional attributes of the <see cref="License"/>.
+    /// </summary>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
+    ILicenseBuilder AddAdditionalAttribute(string attributeName, string value);
 
+    /// <summary>
+    /// Sets the licensed submodules of the <see cref="License"/>.
+    /// </summary>
+    /// <param name="sublicenses">The additional sublicenses of the <see cref="License"/>.</param>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
     ILicenseBuilder WithSublicenses(IEnumerable<License> sublicenses);
+    
+    /// <summary>
+    /// Sets the licensed submodules of the <see cref="License"/>.
+    /// </summary>
+    /// <returns>The <see cref="ILicenseBuilder"/>.</returns>
+    ILicenseBuilder AddSublicense(License sublicense);
 
     /// <summary>
     /// Create and sign a new <see cref="License"/> with the specified
