@@ -60,6 +60,7 @@ public sealed record License
         var version = int.Parse(licenseElement.Attribute("version")?.Value ?? "0");
         var type = Enum.Parse<LicenseType>(licenseElement.Element("Type")?.Value ?? LicenseType.None.ToString(), true);
         var quantity = int.Parse(licenseElement.Element("Quantity")?.Value ?? "0");
+        var product = licenseElement.Element("Product")?.Value;
         var expiration = string.IsNullOrEmpty(licenseElement.Element("Expiration")?.Value)
             ? DefaultExpirationDate
             : DateTimeOffset.ParseExact(licenseElement.Element("Expiration")?.Value, "r", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal);
@@ -99,6 +100,7 @@ public sealed record License
         Id = id;
         Type = type;
         Quantity = quantity;
+        Product = product;
         Expiration = expiration;
         ProductFeatures = productFeatures;
         AdditionalAttributes = additionalAttributes;
@@ -118,6 +120,8 @@ public sealed record License
 
     public int Quantity { get; init; }
     
+    public string Product { get; init; }
+
     public int Version { get; init; }
 
     public IReadOnlyDictionary<string, string> ProductFeatures { get; init; }
@@ -217,6 +221,11 @@ public sealed record License
         if (!EqualityComparer<int>.Default.Equals(Quantity, default))
         {
             elements.Add(new XElement("Quantity", Quantity.ToString()));
+        }
+
+        if (!string.IsNullOrEmpty(Product))
+        {
+            elements.Add(new XElement("Product", Product));
         }
 
         if (!EqualityComparer<Customer>.Default.Equals(Customer, default))

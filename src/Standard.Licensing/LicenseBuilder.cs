@@ -42,6 +42,8 @@ internal class LicenseBuilder : ILicenseBuilder
         
     public Guid Id { get; private set; }
 
+    public string Product { get; private set; }
+
     public IReadOnlyDictionary<string, string> ProductFeatures => productFeatures;
 
     public Customer Customer { get; private set; }
@@ -96,6 +98,12 @@ internal class LicenseBuilder : ILicenseBuilder
     public ILicenseBuilder WithMaximumUtilization(int utilization)
     {
         Quantity = utilization;
+        return this;
+    }
+
+    public ILicenseBuilder WithProduct(string product)
+    {
+        Product = product;
         return this;
     }
 
@@ -200,6 +208,7 @@ internal class LicenseBuilder : ILicenseBuilder
         var license = new License()
         {
             Id = Id,
+            Product = Product,
             Customer = EqualityComparer<Customer>.Default.Equals(Customer, default) ? null : Customer,
             AdditionalAttributes = AdditionalAttributes.Any() ? AdditionalAttributes : null,
             ProductFeatures = ProductFeatures.Any() ? ProductFeatures : null,

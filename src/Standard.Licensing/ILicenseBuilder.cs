@@ -38,6 +38,8 @@ public interface ILicenseBuilder : IFluentInterface
     /// </summary>
     Guid Id { get; }
     
+    string Product { get; }
+
     /// <summary>
     /// Gets the licensed product features of the <see cref="License"/>.
     /// </summary>
@@ -91,6 +93,8 @@ public interface ILicenseBuilder : IFluentInterface
     
     ILicenseBuilder WithMaximumUtilization(int utilization);
         
+    ILicenseBuilder WithProduct(string product);
+
     /// <summary>
     /// Sets the <see cref="Customer">license holder</see> of the <see cref="License"/>.
     /// </summary>

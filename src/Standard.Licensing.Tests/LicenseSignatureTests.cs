@@ -98,6 +98,7 @@ namespace Standard.Licensing.Tests
                                  .WithUniqueIdentifier(licenseId)
                                  .As(LicenseType.Standard)
                                  .WithMaximumUtilization(10)
+                                 .WithProduct("PoeBane")
                                  .WithProductFeatures(productFeatures)
                                  .LicensedTo(customerName, customerEmail)
                                  .ExpiresAt(expirationDate)
@@ -109,11 +110,13 @@ namespace Standard.Licensing.Tests
             // validate xml
             var xmlElement = XElement.Parse(license.ToString(), LoadOptions.None);
             Assert.That(xmlElement.HasElements, Is.True);
+            Assert.That(License.Load(license.ToString()).Product, Is.EqualTo("PoeBane"));
 
             // validate default values when not set
             Assert.That(license.Id, Is.EqualTo(licenseId));
             Assert.That(license.Type, Is.EqualTo(LicenseType.Standard));
             Assert.That(license.Quantity, Is.EqualTo(10));
+            Assert.That(license.Product, Is.EqualTo("PoeBane"));
             Assert.That(license.ProductFeatures, Is.Not.Null);
             Assert.That(license.ProductFeatures, Is.EquivalentTo(productFeatures));
             Assert.That(license.Customer, Is.Not.Null);
